@@ -4,7 +4,7 @@ munin-plugins
 To install the plugins, clone the repository somewhere, then run as root:
 
 ```bash
-munin-node-configure --libdir=munin-plugins --shell
+munin-node-configure --libdir=/absolute/path/to/munin-plugins --shell
 ```
 
 Then copy/paste the commands related to the plugins you're interested in.
