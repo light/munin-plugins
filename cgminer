@@ -19,14 +19,17 @@ rpc_host = os.getenv("host", "localhost")
 rpc_port = int(os.getenv("port", 4028))
 
 def cgminer_rpc(command):
-   s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-   s.connect((rpc_host, rpc_port))
-   s.send(json.dumps({"command": command}))
-   res = s.makefile().read()
-   s.close()
-   return json.loads(res.replace('\x00',''))
+   try:
+      s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      s.connect((rpc_host, rpc_port))
+      s.send(json.dumps({"command": command}))
+      res = s.makefile().read()
+      s.close()
+      return json.loads(res.replace('\x00','')), None
+   except socket.error as e:
+      return None, str(e)
    
-devs = cgminer_rpc('devs')
+devs, err = cgminer_rpc('devs')
 
 arg = sys.argv[1] if len(sys.argv) == 2 else None
 if arg == "config":
@@ -34,13 +37,16 @@ if arg == "config":
    print('graph_vlabel Hashrate')
    print('graph_args --base 1000 --lower-limit 0')
    print('graph_category mining')
-   for dev in devs['DEVS']:
-      print('gpu_'+str(dev['GPU'])+'.label GPU '+str(dev['GPU']))
-      print('gpu_'+str(dev['GPU'])+'.type DERIVE')
-      print('gpu_'+str(dev['GPU'])+'.min 0')
-      print('gpu_'+str(dev['GPU'])+'.draw '+("AREA" if dev==devs['DEVS'][0] else "STACK"))
+   if devs:
+      for dev in devs['DEVS']:
+         print('gpu_'+str(dev['GPU'])+'.label GPU '+str(dev['GPU']))
+         print('gpu_'+str(dev['GPU'])+'.type DERIVE')
+         print('gpu_'+str(dev['GPU'])+'.min 0')
+         print('gpu_'+str(dev['GPU'])+'.draw '+("AREA" if dev==devs['DEVS'][0] else "STACK"))
 elif arg == "autoconf":
-   if len(devs['DEVS']) == 0:
+   if err:
+      print("no ("+err+")")
+   elif len(devs['DEVS']) == 0:
       print("no (no gpu found)")
    else:
       print("yes")
@@ -48,6 +54,7 @@ elif arg == "autoconf":
 elif arg == "version":
    print(plugin_name+' Munin plugin, version '+plugin_version)
 else:
-   for dev in devs['DEVS']:
-      print('gpu_%s.value %d' % (dev['GPU'], dev['Total MH']*1e6))
+   if devs:
+      for dev in devs['DEVS']:
+         print('gpu_%s.value %d' % (dev['GPU'], dev['Total MH']*1e6))
 
