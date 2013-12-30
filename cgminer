@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+# -*- python -*-
+#
+# Cgminer plugin
+#
+# Optional configuration:
+#
+# [cgminer]
+# env.host = 'localhost'
+# env.port = 4028
+#
+#%# capabilities=autoconf
+#%# family=auto
+
+import os, sys, string, glob, socket, json
+plugin_name=list(os.path.split(sys.argv[0]))[1]
+plugin_version="1.0"
+rpc_host = os.getenv("host", "localhost")
+rpc_port = int(os.getenv("port", 4028))
+
+def cgminer_rpc(command):
+   s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+   s.connect((rpc_host, rpc_port))
+   s.send(json.dumps({"command": command}))
+   res = s.makefile().read()
+   s.close()
+   return json.loads(res.replace('\x00',''))
+   
+devs = cgminer_rpc('devs')
+
+arg = sys.argv[1] if len(sys.argv) == 2 else None
+if arg == "config":
+   print('graph_title Hashrate')
+   print('graph_vlabel Hashrate')
+   print('graph_args --base 1000 --lower-limit 0')
+   print('graph_category mining')
+   for dev in devs['DEVS']:
+      print('gpu_'+str(dev['GPU'])+'.label GPU '+str(dev['GPU']))
+      print('gpu_'+str(dev['GPU'])+'.type DERIVE')
+      print('gpu_'+str(dev['GPU'])+'.min 0')
+      print('gpu_'+str(dev['GPU'])+'.draw '+("AREA" if dev==devs['DEVS'][0] else "STACK"))
+elif arg == "autoconf":
+   if len(devs['DEVS']) == 0:
+      print("no (no gpu found)")
+   else:
+      print("yes")
+#elif arg == "suggest":
+elif arg == "version":
+   print(plugin_name+' Munin plugin, version '+plugin_version)
+else:
+   for dev in devs['DEVS']:
+      print('gpu_%s.value %d' % (dev['GPU'], dev['Total MH']*1e6))
+
