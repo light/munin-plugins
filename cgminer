@@ -14,7 +14,7 @@
 
 import os, sys, string, glob, socket, json
 plugin_name=list(os.path.split(sys.argv[0]))[1]
-plugin_version="1.0"
+plugin_version="2.0"
 rpc_host = os.getenv("host", "localhost")
 rpc_port = int(os.getenv("port", 4028))
 
@@ -28,21 +28,31 @@ def cgminer_rpc(command):
       return json.loads(res.replace('\x00','')), None
    except socket.error as e:
       return None, str(e)
-   
+
 devs, err = cgminer_rpc('devs')
 
 arg = sys.argv[1] if len(sys.argv) == 2 else None
 if arg == "config":
-   print('graph_title Hashrate')
-   print('graph_vlabel Hashrate')
-   print('graph_args --base 1000 --lower-limit 0')
+   print('multigraph cgminer_hashrate')
    print('graph_category mining')
+   print('graph_title Hashrate')
+   print('graph_vlabel Hash/s')
+   print('graph_args --base 1000 --lower-limit 0')
    if devs:
       for dev in devs['DEVS']:
          print('gpu_'+str(dev['GPU'])+'.label GPU '+str(dev['GPU']))
          print('gpu_'+str(dev['GPU'])+'.type DERIVE')
          print('gpu_'+str(dev['GPU'])+'.min 0')
          print('gpu_'+str(dev['GPU'])+'.draw '+("AREA" if dev==devs['DEVS'][0] else "STACK"))
+
+   print('multigraph cgminer_temperature')
+   print('graph_category mining')
+   print('graph_title GPU Temperature')
+   print('graph_vlabel °C')
+   if devs:
+      for dev in devs['DEVS']:
+         print('gpu_'+str(dev['GPU'])+'.label GPU '+str(dev['GPU']))
+   
 elif arg == "autoconf":
    if err:
       print("no ("+err+")")
@@ -55,6 +65,10 @@ elif arg == "version":
    print(plugin_name+' Munin plugin, version '+plugin_version)
 else:
    if devs:
+      print('multigraph cgminer_hashrate')
       for dev in devs['DEVS']:
          print('gpu_%s.value %d' % (dev['GPU'], dev['Total MH']*1e6))
+      print('multigraph cgminer_temperature')
+      for dev in devs['DEVS']:
+         print('gpu_%s.value %f' % (dev['GPU'], dev['Temperature']))
 
