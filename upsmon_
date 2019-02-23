@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+# -*- python -*-
+#
+# Wildcard plugin to monitor UPS using nut
+#
+#%# capabilities=autoconf suggest
+#%# family=auto
+
+import os, sys, string, subprocess
+plugin_name = list(os.path.split(sys.argv[0]))[1]
+plugin_version = "1.0"
+target = plugin_name[string.rindex(plugin_name,'_')+1:]
+
+def run_command(args):
+   out, err = subprocess \
+      .Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE) \
+      .communicate()
+   return out
+
+def get_ups_vars(ups):
+   lines = run_command(['upsc', ups]).splitlines()
+   vars = {v[0]:v[1] for v in [l.split(": ") for l in lines]}
+   return vars
+
+def list_ups():
+   return run_command(['upsc', '-l']).splitlines()
+
+arg = sys.argv[1] if len(sys.argv) == 2 else None
+if arg == "config":
+   print('host_name '+target)
+   print('multigraph ups_battery_level')
+#   print('host_name '+target)
+   print('graph_category power')
+   print('graph_title '+target+' UPS Battery charge level')
+   print('graph_vlabel %')
+   print('graph_args --lower-limit 0 --upper-limit 100 --rigid')
+   print('battery_charge.label Battery level')
+   print('multigraph ups_battery_runtime')
+#   print('host_name '+target)
+   print('graph_category power')
+   print('graph_title '+target+' UPS Battery remaining runtime')
+   print('graph_vlabel minutes')
+   print('graph_args --lower-limit 0')
+   print('battery_runtime.label Battery runtime')
+   print('multigraph ups_output_load')
+#   print('host_name '+target)
+   print('graph_category power')
+   print('graph_title '+target+' UPS Load')
+   print('graph_vlabel %')
+   print('graph_args --lower-limit 0 --upper-limit 100 --rigid')
+   print('output_load.label Load')
+elif arg == "autoconf":
+   ups = list_ups()
+   if len(ups) == 0:
+      print("no (no ups listed via upsc -l)")
+   else:
+      print("yes")
+elif arg == "suggest":
+   for u in list_ups():
+      print (u)
+elif arg == "version":
+   print('upsmon_ Munin plugin, version '+plugin_version)
+else:
+   vars = get_ups_vars(target)
+   print('multigraph ups_battery_level')
+   print('battery_charge.value ' + vars['battery.charge'])
+   print('multigraph ups_battery_runtime')
+   print('battery_runtime.value ' + str(int(vars['battery.runtime'])/60.0))
+   print('multigraph ups_output_load')
+   print('output_load.value ' + vars['ups.load'])
+ 
