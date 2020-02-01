@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+# -*- python -*-
+#
+#%# capabilities=autoconf
+#%# family=auto
+
+import os, sys, string, re
+plugin_name = list(os.path.split(sys.argv[0]))[1]
+plugin_version = "1.0"
+target = plugin_name[string.rindex(plugin_name,'_')+1:]
+
+# For each interface, returns network statistics
+fields = ['rx_bytes', 'rx_packets', 'rx_errs', 'rx_drop', 'rx_fifo', 'rx_frame', 'rx_compressed', 'rx_multicast', 'tx_bytes', 'tx_packets', 'tx_errs', 'tx_drop', 'tx_fifo', 'tx_colls', 'tx_carrier', 'tx_compressed']
+def get_net_data():
+   data = {}
+   with open("/proc/net/dev") as f:
+      for l in f:
+         m = re.match("(.*):(.*)", l.strip())
+         if m:
+            values = [int(v) for v in  m.group(2).split()]
+            data[m.group(1)] = dict(zip(fields, values))
+   devs = sorted(data.keys())
+   return devs, data
+
+   
+
+def read_one_value(file):
+   with open(file) as f:
+      return int(f.readline())
+
+
+arg = sys.argv[1] if len(sys.argv) == 2 else None
+if arg == "config":
+   devs, data = get_net_data()
+
+   print('graph_category network')
+   print('graph_title Network total throughput')
+   print('graph_vlabel bps')
+   print('graph_args --base 1024')
+   for dev in devs:
+      for dir in ['rx', 'tx']:
+         print('dev_%s_%s.label %s %s' % (dev, dir, dev, dir.upper()))
+         print('dev_%s_%s.graph no' % (dev, dir))
+         print('dev_%s_%s.type DERIVE' % (dev, dir))
+         print('dev_%s_%s.min 0' % (dev, dir))
+         print('dev_%s_%s.graph no' % (dev, dir))
+      dev_tot = 'dev_'+dev+'_tot'
+      print('dev_%s_tot.label %s total throughput' % (dev, dev))
+      print('dev_%s_tot.cdef dev_%s_rx,dev_%s_tx,+' % (dev, dev, dev))
+elif arg == "autoconf":
+   print("yes")
+elif arg == "version":
+   print(plugin_name+' Munin plugin, version '+plugin_version)
+else:
+   devs, data = get_net_data()
+   for dev in devs:
+      for dir in ['rx', 'tx']:
+         print('dev_%s_%s.value %s' % (dev, dir, data[dev][dir+'_bytes']))
+
